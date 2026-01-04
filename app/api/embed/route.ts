@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server"
+import OpenAI from "openai"
 
 export const runtime = "nodejs"
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+})
 
 export async function POST(req: Request) {
   const { texts } = await req.json()
 
-  const embeddings = await Promise.all(
-    texts.map(async (text: string) => {
-      const res = await fetch("http://localhost:11434/api/embeddings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "nomic-embed-text",
-          prompt: text,
-        }),
-      })
+  const response = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: texts,
+  })
 
-      const data = await res.json()
-      return data.embedding
-    })
-  )
+  const embeddings = response.data.map((d) => d.embedding)
 
   return NextResponse.json(embeddings)
 }
