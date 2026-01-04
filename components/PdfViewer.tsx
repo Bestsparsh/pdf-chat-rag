@@ -1,11 +1,20 @@
 "use client"
 
-import { Document, Page, pdfjs } from "react-pdf"
+import { useEffect, useState } from "react"
 import { FixedSizeList as List } from "react-window"
-import { useState } from "react"
 import { highlightText } from "@/utils"
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+type PdfModule = {
+  Document: React.ComponentType<any>
+  Page: React.ComponentType<any>
+  pdfjs: {
+    GlobalWorkerOptions: {
+      workerSrc: string
+    }
+  }
+}
 
 export default function PdfViewer({
   file,
@@ -14,44 +23,58 @@ export default function PdfViewer({
   file: File | null
   highlight: string
 }) {
-  const [numPages, setNumPages] = useState(0)
+  const [pdf, setPdf] = useState<PdfModule | null>(null)
+  const [numPages, setNumPages] = useState<number>(0)
 
-  const customTextRenderer = ({ str }: { str: string }) => {
-    return highlight ? highlightText(str, highlight) : str
-  }
+  useEffect(() => {
+    let mounted = true
+
+    import("react-pdf").then((mod) => {
+      if (!mounted) return
+
+      mod.pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
+
+      setPdf({
+        Document: mod.Document,
+        Page: mod.Page,
+        pdfjs: mod.pdfjs,
+      })
+    })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  if (!pdf || !file) return null
+
+  const { Document, Page } = pdf
 
   return (
     <Document
       file={file}
-      onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+      onLoadSuccess={(doc: { numPages: number }) => setNumPages(doc.numPages)}
     >
-      <div className="h-full overflow-hidden">
-        <List
-          height={window.innerHeight}
-          itemCount={numPages}
-          itemSize={792}
-          width={630}
-          className="bg-white no-scrollbar"
-        >
-          {(props: unknown) => {
-            const { index, style } = props as {
-              index: number
-              style: React.CSSProperties
-            }
-
-            return (
-              <div style={style}>
-                <Page
-                  pageNumber={index + 1}
-                  renderTextLayer={false}
-                  renderAnnotationLayer={false}
-                  customTextRenderer={customTextRenderer}
-                />
-              </div>
-            )
-          }}
-        </List>
-      </div>
+      <List
+        height={window.innerHeight}
+        itemCount={numPages}
+        itemSize={792}
+        width={630}
+        className="bg-white no-scrollbar"
+      >
+        {({ index, style }) => (
+          <div style={style}>
+            <Page
+              pageNumber={index + 1}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+              customTextRenderer={(item: { str: string }) =>
+                highlight ? highlightText(item.str, highlight) : item.str
+              }
+            />
+          </div>
+        )}
+      </List>
     </Document>
   )
 }

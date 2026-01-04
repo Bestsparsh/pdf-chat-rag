@@ -1,11 +1,12 @@
-import { pdfjs } from "react-pdf"
 import type { TextItem } from "pdfjs-dist/types/src/display/api"
 
 export async function extractTextFromPdf(file: File) {
+  const { pdfjs } = await import("react-pdf")
+
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise
 
-  const pages = []
+  const pages: { pageNumber: number; text: string }[] = []
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
